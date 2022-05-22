@@ -5,6 +5,7 @@ using namespace std;
 struct ListNode {
  	int val;
  	struct ListNode *next;
+     ListNode(int val);
 };
  
 
