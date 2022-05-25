@@ -4,7 +4,7 @@
 // #include<stack>
 using namespace std;
 
-
+// 存在优化方案
 // Definition for a Node.
 class Node {
 public:
