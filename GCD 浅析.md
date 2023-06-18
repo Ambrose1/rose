@@ -213,9 +213,9 @@ dispatch_release(block);
 
 ​                                                                                   图3.1  GCD源码架构
 
-如图3.1 所示，是GCD的源码架构，GCD底层是C语言实现的libdispatch库，阅读源码可以更好的了解多线程的执行方式。
+如图3.1 所示，是GCD的源码架构，GCD底层是C语言实现的libdispatch库，阅读源码可以更好的了解多线程的执行方式。本文将节选dispatch_queue_t 的创建和dispatch_source 两部分源码进行分析讲解。
 
-###  3.1 源码阅读顺序
+###  3.1 源码阅读思路和注意点
 
 1. 了解GCD的基本概念和术语，包括任务、队列、同步和异步、串行队列和并发队列等。
 2. 了解GCD的API，包括dispatch_async、dispatch_sync、dispatch_barrier_async、dispatch_group_async、dispatch_apply和dispatch_after等。
@@ -228,23 +228,144 @@ dispatch_release(block);
 9. 阅读libdispatch的单元测试代码，了解其测试方法和覆盖率。
 10. 研究libdispatch的性能和调试工具，包括Instruments、DTrace、lldb等，了解如何分析和优化libdispatch的性能问题。
 
+在阅读libdispatch源码时，需要注意以下几点：
+
+- 理解每个函数的作用和使用方法，包括参数和返回值等。
+- 注意源码中的注释和文档，了解函数的实现原理和设计思路。
+- 熟悉C语言和多线程编程的基本知识，包括指针、内存管理、锁和条件变量等。
+- 熟悉UNIX系统编程的基本知识，包括进程、线程、信号和文件等。
+- 注意代码的风格和规范，包括缩进、命名、注释和错误处理等。
+
+### 3.2 dispatch_queue_t
+
+​         队列是GCD库的核心，GCD的队列是通过libdispatch创建的，在queue.c文件中，同时dispatch_async 和dispatch_sync 都在queue.c文件内。
+
+#### 3.2.1 队列和线程的关系
+
+在 GCD 中，队列和线程是密切相关的，可以说队列是线程的管理者，而线程则是任务的执行者。
+
+在串行队列中，GCD 会为每个队列创建一个单独的线程，该线程会按照队列中任务的顺序依次执行任务。每个任务执行完毕后，线程会等待下一个任务的到来。由于串行队列中只有一个线程，因此任务是依次执行的，不会出现资源竞争的问题。
+
+在并发队列中，GCD 会为每个队列创建一个线程池，线程池中的线程可以同时执行多个任务。GCD 会根据系统的负载情况动态地增加或减少线程的数量，以保持系统的性能和稳定性。由于并发队列中的任务可以并发执行，因此需要考虑资源竞争的问题，开发者需要合理地控制任务的并发度，以避免出现线程安全问题。
+
+在 GCD 中，线程池的创建和销毁以及线程的管理都是由 GCD 内部完成的，开发者只需要将任务提交到队列中即可。GCD 会自动将任务分配到对应的队列中，并选择合适的线程来执行任务，从而实现任务的并发执行和线程的高效利用。
+
+总之，队列是 GCD 管理任务的单位，线程是 GCD 执行任务的单位。通过合理地创建和使用队列，开发者可以实现任务的并发执行和线程的高效利用，从而提高应用程序的性能和响应速度。
+
+![](https://upload-images.jianshu.io/upload_images/1966287-8d380e40b868382b.image?imageMogr2/auto-orient/strip|imageView2/2/w/1200/format/webp)
+
+​                                                                          图3.2 GCD线程和队列的关系
+
+#### 3.2.2 队列的结构体
+
+**dispatch_queue_s**是队列的结构体，libdispatch源码中使用了一些宏，下面使用对应结构替换对应的宏。
+
+```c
+struct dispatch_queue_s {
+    // 第一部分：DISPATCH_STRUCT_HEADER(dispatch_queue_s, dispatch_queue_vtable_s)
+    const struct dispatch_queue_vtable_s *do_vtable; // 该类型的结构体包含了对dispatch_queue_s的操作函数
+    struct dispatch_queue_s *volatile do_next; //链表的next volatile保证线程安全
+    unsigned int do_ref_cnt; // 引用计数
+    unsigned int do_xref_cnt; // 外部引用计数
+    unsigned int do_suspend_cnt; // 暂停标志，比如延时处理中，在任务到时后，计时器处理将会将该标志位修改，然后唤醒队列调度
+    struct dispatch_queue_s *do_targetq; // 目标队列，GCD允许我们将一个队列放在另一个队列里执行任务
+    void *do_ctxt; // 上下文，用来存储线程池相关数据，比如用于线程挂起和唤醒的信号量、线程池尺寸等
+    void *do_finalizer;
+    
+    // 第二部分：DISPATCH_QUEUE_HEADER
+    uint32_t volatile dq_running; // 队列运行的任务数量
+    uint32_t dq_width; // 最大并发数：主队列/串行队列的最大并发数为1
+    struct dispatch_object_s *volatile dq_items_tail; // 队列尾结点
+    struct dispatch_object_s *volatile dq_items_head; // 队列头结点
+    unsigned long dq_serialnum; // 队列序列号
+    dispatch_queue_t dq_specific_q; // specific队列
+    
+    char dq_label[DISPATCH_QUEUE_MIN_LABEL_SIZE]; // 队列名，队列名要少于64个字符    
+    char _dq_pad[DISPATCH_QUEUE_CACHELINE_PAD]; // for static queues only
+};
+```
+
+如上述代码所示，GCD的队列是一个线程安全的链表实现。结构体中包含了对应的操作函数、引用计数、状态标志、上下文、并发数，队列名等许多属性。其中操作函数结构体中，声明了一些函数用于操作dispatch_queue_s结构体，如下所示：
+
+```c
+// dispatch_queue_vtable_s结构体，声明了一些函数用于操作dispatch_queue_s结构体
+struct dispatch_queue_vtable_s {
+    // DISPATCH_VTABLE_HEADER(dispatch_queue_s);
+    unsigned long const do_type;
+    const char *const do_kind;
+    size_t (*const do_debug)(struct dispatch_queue_s *, char *, size_t);
+    // 唤醒队列的方法，全局队列和主队列此项为NULL
+    struct dispatch_queue_s *(*const do_invoke)(struct dispatch_queue_s); 
+    // 用于检测传入对象中的一些值是否满足条件
+    bool (*const do_probe)(struct dispatch_queue_s *);
+    // 销毁队列的方法，通常内部会调用这个对象的finalizer函数
+    void (*const do_dispose)(struct dispatch_queue_s *)
+};
+```
+
+在queue.c代码中，定义了三个关于`dispatch_queue_vtable_s`的静态常量，分别是：
+
+```
+// 用于主队列和自定义队列
+const struct dispatch_queue_vtable_s _dispatch_queue_vtable = {
+    .do_type = DISPATCH_QUEUE_TYPE,
+    .do_kind = "queue",
+    .do_dispose = _dispatch_queue_dispose,
+    .do_invoke = NULL,
+    .do_probe = (void *)dummy_function_r0,
+    .do_debug = dispatch_queue_debug,
+};
+
+// 用于全局队列
+static const struct dispatch_queue_vtable_s _dispatch_queue_root_vtable = {
+    .do_type = DISPATCH_QUEUE_GLOBAL_TYPE,
+    .do_kind = "global-queue",
+    .do_debug = dispatch_queue_debug,
+    .do_probe = _dispatch_queue_wakeup_global,
+};
+
+// 用于管理队列
+static const struct dispatch_queue_vtable_s _dispatch_queue_mgr_vtable = {
+    .do_type = DISPATCH_QUEUE_MGR_TYPE,
+    .do_kind = "mgr-queue",
+    .do_invoke = _dispatch_mgr_thread,
+    .do_debug = dispatch_queue_debug,
+    .do_probe = _dispatch_mgr_wakeup,
+};
+```
+
+#### 3.2.3 队列的创建过程
+
+![](https://www.planttext.com/api/plantuml/png/bL91SiCW3Bpx5VH6P_o2zfAVC39MRJN242II-lV5iTj9flQXDv1sLxk8aoXaBO6R5nqne0cGfMdkrUQj9qcWVdINWWMTpmYAbg53RWsevjVt0v2xaOwkgWoeZuJMhBKTuj9s0SuRznB5UGOH-tjgJKO6fIkwb2bcqdb7Hr0VoKkjDV_Ks4BG17w17aO6ZO5yTVr50PXd1qp3XBrBccrQmNLox3xHQsroz7QzjEQ3OP0djI77aXp8F7bxFrVVg_sk4iyxM9mKyuhTIP6AZFPGOVDETTWLkE2EF2FKy7_bDsgFnzGRaFw4K0eOo_FEwnOG1BVNg2tHc9hcX5DVV-Ct)
+
+```
+== 方法解释 ==
+dispatch_queue_create(label, attr)：创建并发队列，其中 label 参数是队列的标签，用于调试和区分不同的队列；attr 参数是队列的属性，用于设置队列的服务质量等级等参数。
+dispatch_queue_create_with_target(label, attr, target)：创建并发队列，并指定队列的目标派发队列，以便 GCD 在执行任务时可以更加高效地利用系统资源。
+dispatch_queue_attr_make_with_qos_class(qos_class, relative_priority)：创建一个包含指定服务质量等级和相对优先级的队列属性对象，用于设置队列的服务质量等级等参数。
+dispatch_queue_set_qos_class(queue, qos_class, relative_priority)：设置队列的服务质量等级和相对优先级。
+dispatch_queue_create_inactive(label, attr)：创建一个新的未激活的并发队列，其中 label 参数是队列的标签，用于调试和区分不同的队列；attr 参数是队列的属性，用于设置队列的服务质量等级等参数。
+dispatch_atomic_maximally_aligned_ptr(ptr)：返回最大对齐的指针地址，用于确保指针的对齐方式和硬件平台的要求一致。
+os_object_alloc(object, flags)：分配一个新的对象，用于存储队列、任务等数据结构。
+dispatch_group_async(group, queue, block)：将一个块添加到指定分组和队列中，其中 group 参数是分组对象，用于跟踪任务的执行状态；queue 参数是要添加任务的队列对象；block 参数是要执行的块对象。
+dispatch_group_enter(group)：告诉分组对象该任务已经开始执行，以便分组对象可以跟踪任务的执行状态。
+dispatch_queue_push(queue, block)：将一个块添加到指定队列中，其中 queue 参数是要添加任务的队列对象；block 参数是要执行的块对象。
+dispatch_atomic_inc(value)：原子性地增加指定计数器的值，以确保计数器的值正确无误。
+dispatch_group_leave(group)：告诉分组对象该任务已经执行完成，以便分组对象可以跟踪任务的执行状态。
+dispatch_atomic_dec(value)：原子性地减少指定计数器的值，以确保计数器的值正确无误。
+dispatch_group_wait(group, timeout)：等待指定分组中的任务执行完成，直到所有任务执行完成或超时。
+dispatch_release(object)：释放指定对象的引用计数，以便系统可以回收该对象的内存空间，防止内存泄漏。
+```
 
 
-### 3.2 
 
 
 
-
-
-
-
-
-
-
+## 四. 总结&应用
 
 ![img](http://cdn-0.plantuml.com/plantuml/png/VPFTQjmm48Nlvob4xfUyGSbsKvP0Ir8sBw1eLLiWMuf-8ANatIlFU5QgiPgBSCxnqIJ-v7c8IOQK9mkGJB9Qd4-FuXZKQ99MAGSD48gGyr2UtHszjqR9PDny9sGKqllsSJcByQ2kuW-8yjCyV3JHowH6R5nNizOsrOiEHjhxavjL3a7FIVpCEkk8HzzHxXtx8SrCJInEnRxlzSxMlKdRpXmmsIsVSankQiiAaztoyUM9EjARY8NFBORNCMXvZUB5EOjLNyG-XcyVMkM5jIWaalv8wzydqvdFcCKvkEpfxHRLxLtq9Fte0a6BxBhzhp84emEstqXtky-peh6kY6vh-Qf-4xP5xHCxNEGlBIx91JdGp1JZ_wfqoviJG-_8TwUsPHlxp5mEQWM6ijjyDPCEaGQYx3QVxf-nPXny0XGIud3uigmIGFc5XhU60_nssD0riwiNoGbV5dky4pP4dXsYhNfeZAsQtfmjlnvRum3u_rq2tjisenNzDw9Lt8IyScr8EmOB0khmMW22s42ugGOLh4Jgj0L9TO1G60WxHbAY6v8IL0C4fiuXCjKRLpKywFcQ9_iN)
 
-
+​                                                                              图4.1 GCD的整体架构图
 
 
 
