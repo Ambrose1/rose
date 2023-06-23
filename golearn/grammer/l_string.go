@@ -95,4 +95,10 @@ func main() {
 	num:=findIndex(arr, 8)
 	fmt.Println(num)
 
+    str := "aabaa"
+    r := 1
+    for _, var := range str {
+        res = 
+    }
+
 }
