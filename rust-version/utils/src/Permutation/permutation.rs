@@ -35,4 +35,18 @@ impl PermutationInterface for Permutation {
             right -= 1;
         }
     }
+
+    fn same_number(nums: Vec<i32>) -> i32 {
+        let (mut fast, mut slow) = (nums[nums[0] as usize], nums[0]);
+        while fast != slow {
+            fast = nums[nums[fast as usize] as usize];
+            slow = nums[slow as usize];
+        }
+        slow = 0;
+        while slow != fast {
+            slow = nums[slow as usize];
+            fast = nums[fast as usize];
+        }
+        return slow;
+    }
 }
