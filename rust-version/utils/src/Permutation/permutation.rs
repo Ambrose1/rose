@@ -49,4 +49,25 @@ impl PermutationInterface for Permutation {
         }
         return slow;
     }
+
+    fn find_root(n: i32, edges: Vec<Vec<i32>>) -> i32 {
+        let mut st: u128 = 0;
+
+        // 更新位，入度对应位更新为 1
+        for i in &edges {
+            st |= (1 << i[1]);
+        }
+
+        // 找没有入度的
+        let mut r:i32 = -1;
+        for j in 0..n {
+            if st & (1 << j) == 0 {
+                if r != -1 {
+                    return -1;
+                }
+                r = j;
+            }
+        }
+        r
+    }
 }
