@@ -71,3 +71,56 @@ impl PermutationInterface for Permutation {
         r
     }
 }
+
+struct MyHashSet {
+    hash_set: Vec<i32>
+}
+
+
+/**
+ * `&self` means the method takes an immutable reference.
+ * If you need a mutable reference, change it to `&mut self` instead.
+ */
+impl MyHashSet {
+
+    fn new() -> Self {
+        Self {
+            hash_set : Vec::new()
+        }
+    }
+    
+    fn add(&mut self, key: i32) {
+        let index = key / 32;
+        let remainder = key % 32;
+        if (index as usize) >= self.hash_set.len() {
+            self.hash_set.resize(index as usize + 1, 0);
+        }
+        self.hash_set[index as usize] |= (1 << remainder);
+    }
+    
+    fn remove(&mut self, key: i32) {
+        let index = key / 32;
+        let remainder = key % 32;
+        if (index as usize) < self.hash_set.len() {
+            self.hash_set[index as usize] &= !(1 << remainder);
+        }
+    }
+    
+    fn contains(&self, key: i32) -> bool {
+        let index = key / 32;
+        let remainder = key % 32;
+        if (index as usize) < self.hash_set.len() {
+            self.hash_set[index as usize] & (1 << remainder) != 0
+        } else {
+            false
+        }
+    }
+}
+
+/**
+ * Your MyHashSet object will be instantiated and called as such:
+ * let obj = MyHashSet::new();
+ * obj.add(key);
+ * obj.remove(key);
+ * let ret_3: bool = obj.contains(key);
+ */
