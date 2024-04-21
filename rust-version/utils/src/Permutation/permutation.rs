@@ -70,6 +70,23 @@ impl PermutationInterface for Permutation {
         }
         r
     }
+
+    fn backtrace(start: i32, k: i32, target: i32, current: &mut Vec<i32>, res: &mut Vec<Vec<i32>>) {
+        if target == 0 && k == 0 {
+            res.push(current.clone());
+            return;
+        }
+
+        if target <= 0 || k == 0 {
+            return;
+        }
+
+        for i in start..= 9 {
+            current.push(i);
+            Self::backtrace(i+1, k-1, target - i, current, res);
+            current.pop(i);
+        }
+    }
 }
 
 struct MyHashSet {
