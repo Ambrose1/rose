@@ -87,6 +87,47 @@ impl PermutationInterface for Permutation {
             current.pop(i);
         }
     }
+
+    pub fn final_string(s: String) -> String {
+        let mut result = String::new();
+        let mut input = String::new();
+
+        for c in s.chars() {
+            if c == 'i' {
+                input = input.chars().rev().collect();
+            } else {
+                input.push(c);
+            }
+        }
+        result.push_str(&input);
+
+        result
+    }
+
+    pub fn best_final_str(s: String) -> String {
+        let mut vec = Vec::new();
+        let mut status = false;
+
+        for c in s.chars() {
+            if c == 'i' {
+                status = !status;
+                continue;
+            }
+
+            if status {
+                vec.insert(0, c);
+            } else {
+                vec.push(c);
+            }
+        }
+        let mut result: String = "";
+        if status {
+            result = vec.iter().rev().collect::<String>();
+        } else {
+            result = vec.iter().collect::<String>();
+        }
+        result
+    }
 }
 
 struct MyHashSet {
