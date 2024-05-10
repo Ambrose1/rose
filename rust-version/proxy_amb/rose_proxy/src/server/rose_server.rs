@@ -12,7 +12,7 @@ impl RoseServer {
 
     #[tokio::main]
     pub async fn start_up_server() -> Result<(), Box<dyn std::error::Error>> {
-        let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+        let addr = "127.0.0.1:8000".parse::<SocketAddr>().unwrap();
         let listener = TcpListener::bind(&addr).await?;
 
         println!("Proxy server listening on {}", addr);
@@ -26,14 +26,14 @@ impl RoseServer {
     async fn handle_client(mut client_socket: TcpStream, client_addr: SocketAddr) -> io::Result<()> {
         println!("Accepted client connection from {}", client_addr);
     
-        let mut server_socket = TcpStream::connect("127.0.0.1:8080").await?;
+        let mut server_socket = TcpStream::connect("www.baidu.com:80").await?;
         println!("Connected to server");
     
         // 从客户端读取数据，并转发给服务器
         let (mut client_reader, mut client_writer) = client_socket.split();
         let (mut server_reader, mut server_writer) = server_socket.split();
 
-        let mut buffer = vec![0; 1024]; // 创建一个缓冲区来存储读取的数据，大小为 1024 字节
+        let mut buffer = vec![0; 10024]; // 创建一个缓冲区来存储读取的数据，大小为 1024 字节
 
         // 从客户端读取数据，并存储在缓冲区中
         let bytes_read = client_reader.read(&mut buffer).await?;
@@ -50,6 +50,20 @@ impl RoseServer {
         // println!("Read {} bytes from server: {:?}", bytes_read, buffer);
 
     
+        // 将客户端发送的数据写入目标服务器
+        // server_writer.write_all(&buffer[..bytes_read]).await?;
+
+        server_socket.write_all(&buffer[..bytes_read]).await?;
+        println!("Sent data to server");
+    
+        // 从目标服务器读取响应数据
+        let mut server_response = Vec::new();
+        server_socket.read_to_end(&mut server_response).await?;
+        println!("Received {} bytes from server", server_response.len());
+    
+        // 将服务器响应写入到客户端
+        client_socket.write_all(&server_response).await?;
+        println!("Sent response to client");
      
         // let client_to_server_result = io::copy(&mut client_reader, &mut server_writer).await;
         // let server_to_client_result = io::copy(&mut server_reader, &mut client_writer).await;
