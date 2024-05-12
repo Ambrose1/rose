@@ -21,6 +21,8 @@ impl RoseServer {
             let (client_socket, client_addr) = listener.accept().await?;
             tokio::spawn(Self::handle_client(client_socket, client_addr));
         }
+
+        
     }
 
     async fn handle_client(mut client_socket: TcpStream, client_addr: SocketAddr) -> io::Result<()> {

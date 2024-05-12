@@ -128,6 +128,29 @@ impl PermutationInterface for Permutation {
         }
         result
     }
+
+    pub fn minimum_sum(nums: Vec<i32>) -> i32 {
+        let n = nums.len();
+        let mut left: Vec<i32> = vec![1000:n];
+        let mut res = 1000;
+
+        for i in 1..=n {
+            left[i] = std::cmp::min(left[i-1], nums[i-1]);
+        }
+
+        let mut right = nums[n-1];
+        for i in (1..n-1).rev {
+            if left[i] < nums[i] && right < nums[i] {
+                res = std::cmp::min(res, left[i] + nums[i] + right);
+            }
+            right = std::cmp::min(right, nums[i]);
+        }
+        if res == 1000 {
+            res = -1;
+        }
+        res
+
+    }
 }
 
 struct MyHashSet {

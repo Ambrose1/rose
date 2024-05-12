@@ -1,0 +1,186 @@
+# Copyright 2024 QuantRocket LLC - All Rights Reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Features
+# - for local deployment
+# - includes all services
+# - pinned to the current production versions
+# - sends anonymous crash reports. To disable, edit flightlog
+#   env to: SEND_CRASH_REPORTS: 'false'
+# - sends anonymous basic usage (houston HTTP access logs). To disable,
+#   edit logspout command to: 'syslog+udp://flightlog:9021'
+
+x-quantrocket-version: '2.10.1'
+x-quantrocket-deploy-target: 'local'
+volumes:
+  codeload:
+  db:
+  flightlog:
+  settings:
+services:
+  account:
+    image: 'quantrocket/account:2.10.0'
+    volumes:
+      - 'db:/var/lib/quantrocket'
+      - 'settings:/etc/opt/quantrocket'
+    depends_on:
+      - db
+    restart: always
+  blotter:
+    image: 'quantrocket/blotter:2.10.0'
+    volumes:
+      - 'db:/var/lib/quantrocket'
+      - 'settings:/etc/opt/quantrocket'
+    depends_on:
+      - db
+    restart: always
+  codeload:
+    image: 'quantrocket/codeload:2.10.0'
+    environment:
+      GIT_URL: 'https://github.com/quantrocket-codeload/quickstart.git'
+      GIT_BRANCH: '2.10'
+      OVERWRITE_EXISTING: 'true'
+    volumes:
+      - 'codeload:/codeload'
+    restart: always
+  countdown:
+    image: 'quantrocket/countdown:2.10.0'
+    volumes:
+      - 'settings:/etc/opt/quantrocket'
+      - 'codeload:/codeload'
+    restart: always
+  dash:
+    image: 'quantrocket/dash:2.10.0'
+    volumes:
+      - 'db:/var/lib/quantrocket'
+      - 'codeload:/codeload'
+    restart: always
+  db:
+    image: 'quantrocket/db:2.10.0'
+    volumes:
+      - 'db:/var/lib/quantrocket'
+      - 'settings:/etc/opt/quantrocket'
+    depends_on:
+      - postgres
+    restart: always
+  flightlog:
+    image: 'quantrocket/flightlog:2.10.0'
+    volumes:
+      - 'flightlog:/var/log/flightlog'
+      - 'settings:/etc/opt/quantrocket'
+    restart: always
+    environment:
+      SEND_CRASH_REPORTS: 'true'
+  fundamental:
+    image: 'quantrocket/fundamental:2.10.0'
+    volumes:
+      - 'db:/var/lib/quantrocket'
+      - 'settings:/etc/opt/quantrocket'
+    depends_on:
+      - db
+    restart: always
+  history:
+    image: 'quantrocket/history:2.10.0'
+    volumes:
+      - 'db:/var/lib/quantrocket'
+      - 'settings:/etc/opt/quantrocket'
+    depends_on:
+      - db
+    restart: always
+  houston:
+    image: 'quantrocket/houston:2.10.0'
+    ports:
+      - '1969:80'
+    environment:
+      QUANTROCKET_VERSION: '2.10.1'
+    restart: always
+  ibg1:
+    image: 'quantrocket/ibg:2.10.0'
+    environment:
+      INI_SETTINGS: '--ExistingSessionDetectedAction=primary'
+    volumes:
+      - 'settings:/etc/opt/quantrocket'
+    restart: always
+    platform: linux/x86_64
+  ibgrouter:
+    image: 'quantrocket/ibgrouter:2.10.0'
+    volumes:
+      - 'codeload:/codeload'
+    restart: always
+  jupyter:
+    image: 'quantrocket/jupyter:2.10.1'
+    volumes:
+      - 'codeload:/codeload'
+      - 'db:/var/lib/quantrocket'
+    restart: always
+  license-service:
+    image: 'quantrocket/license-service:2.10.0'
+    volumes:
+      - 'settings:/etc/opt/quantrocket'
+    restart: always
+  logspout:
+    image: 'quantrocket/logspout:2.10.0'
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+    environment:
+      BACKLOG: 'false'
+    depends_on:
+      - houston
+      - flightlog
+    command: 'syslog+udp://flightlog:9021,syslog://logs5.papertrailapp.com:47405?filter.name=*houston*'
+    restart: always
+  master:
+    image: 'quantrocket/master:2.10.0'
+    volumes:
+      - 'db:/var/lib/quantrocket'
+      - 'codeload:/codeload'
+      - 'settings:/etc/opt/quantrocket'
+    depends_on:
+      - db
+    restart: always
+  moonshot:
+    image: 'quantrocket/moonshot:2.10.0'
+    volumes:
+      - 'codeload:/codeload'
+    restart: always
+  postgres:
+    image: 'quantrocket/postgres:2.10.0'
+    volumes:
+      - 'db:/var/lib/quantrocket'
+    environment:
+      PGDATA: '/var/lib/quantrocket/postgresql12/data/pg_data'
+    restart: always
+  realtime:
+    image: 'quantrocket/realtime:2.10.0'
+    volumes:
+      - 'db:/var/lib/quantrocket'
+      - 'settings:/etc/opt/quantrocket'
+    depends_on:
+      - db
+    restart: always
+  satellite:
+    image: 'quantrocket/satellite:2.10.0'
+    volumes:
+      - 'codeload:/codeload'
+      - 'db:/var/lib/quantrocket'
+    depends_on:
+      - codeload
+    restart: always
+  zipline:
+    image: 'quantrocket/zipline:2.10.1'
+    volumes:
+      - 'codeload:/codeload'
+      - 'db:/var/lib/quantrocket'
+      - 'settings:/etc/opt/quantrocket'
+    restart: always
