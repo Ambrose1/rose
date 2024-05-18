@@ -151,6 +151,56 @@ impl PermutationInterface for Permutation {
         res
 
     }
+
+    pub fn maximum_sum_of_heights(max_heights: Vec<i32>) -> i64 {
+
+        // 返回值和数组里的值类型不一样，意味着需要处理溢出问题
+        let n = max_heights.len();
+        let mut res: i64 = 0;
+        // 使用宏定义
+        let mut prefix = vec![0i64; n];
+        let mut suffix = vec![0i64; n];
+        let mut stack1 = Vec::new();
+        let mut stack2 = Vec::new();
+
+        for i in 0..n {
+            // 需要处理 last 返回的 optional & 类型
+            while let Some(&last) = stack1.last() {
+                if max_heights[i] < max_heights[last] {
+                    stack1.pop();
+                } else {
+                    break;
+                }
+            }
+            if stack1.is_empty() {
+                prefix[i] = (i as i64 + 1) * max_heights[i] as i64;
+            } else {
+                // 引用类型处理，处理可选值的取值问题
+                let last = *stack1.last().unwrap();
+                prefix[i] = prefix[last] + (i as i64 - last as i64) * max_heights[i] as i64;
+            }
+            stack1.push(i);
+        }
+
+        for i in (0..n).rev() {
+            while let Some(&last) = stack2.last() {
+                if max_heights[i] < max_heights[last] {
+                    stack2.pop();
+                } else {
+                    break;
+                }
+            }
+            if stack2.is_empty() {
+                suffix[i] = (n as i64 - i as i64) * max_heights[i] as i64;
+            } else {
+                let last = *stack2.last().unwrap();
+                suffix[i] = suffix[last] + (last as i64 - i as i64) * max_heights[i] as i64;
+            }
+            stack2.push(i);
+            res = res.max(prefix[i] + suffix[i] - max_heights[i] as i64);
+        }
+        res
+    }
 }
 
 struct MyHashSet {
