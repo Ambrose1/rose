@@ -201,6 +201,24 @@ impl PermutationInterface for Permutation {
         }
         res
     }
+    
+    pub fn get_winner(arr: Vec<i32>, k: i32) -> i32 {
+        let n = arr.len();
+        let mut currk = 0;
+        let mut currMax = arr[0];
+        for i in 1..n {
+            if currk == k {
+                return currMax;
+            }
+            if currMax > arr[i] {
+                currk += 1;
+            } else {
+                currk = 1;
+                currMax = arr[i];
+            }
+        }
+        return currMax;
+    }
 }
 
 struct MyHashSet {
