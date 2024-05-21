@@ -201,7 +201,7 @@ impl PermutationInterface for Permutation {
         }
         res
     }
-    
+
     pub fn get_winner(arr: Vec<i32>, k: i32) -> i32 {
         let n = arr.len();
         let mut currk = 0;
@@ -218,6 +218,9 @@ impl PermutationInterface for Permutation {
             }
         }
         return currMax;
+    }
+    pub fn the_maximum_achievable_x(num: i32, t: i32) -> i32 {
+        num + 2 * t
     }
 }
 
