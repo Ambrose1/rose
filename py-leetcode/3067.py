@@ -20,6 +20,5 @@ class Solution:
                 cnt = dfs(v, i, c % signalSpeed)
                 res[i] += pre * cnt
                 pre += cnt
-
         return res
                     
