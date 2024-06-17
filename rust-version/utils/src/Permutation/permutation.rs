@@ -222,7 +222,41 @@ impl PermutationInterface for Permutation {
     pub fn the_maximum_achievable_x(num: i32, t: i32) -> i32 {
         num + 2 * t
     }
+
+    pub fn find_lu_slength(strs: Vec<String>) -> i32 {
+        let n = strs.len();
+        let mut res = -1;
+    
+        // 使用闭包来检查一个字符串是否是另一个字符串的子序列
+        let is_sub_seq = |str1: &str, str2: &str| -> bool {
+            let mut x = 0;
+            let mut y = 0;
+            while x < str1.len() && y < str2.len() {
+                if str1.chars().nth(x) == str2.chars().nth(y) {
+                    x += 1;
+                }
+                y += 1;
+            }
+            x == str1.len()
+        };
+    
+        for i in 0..n {
+            let mut check = true;
+            for j in 0..n {
+                if i != j && is_sub_seq(&strs[i], &strs[j]) {
+                    check = false;
+                    break;
+                }
+            }
+            if check {
+                res = res.max(strs[i].len() as i32);
+            }
+        }
+        res
+    }
+        
 }
+
 
 struct MyHashSet {
     hash_set: Vec<i32>
