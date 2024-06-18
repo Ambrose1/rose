@@ -255,7 +255,57 @@ impl PermutationInterface for Permutation {
         res
     }
         
-}
+    // use regex::Regex;
+
+// struct Solution;
+
+// impl Solution {
+    // 检查字符串是否只包含数字
+    fn is_num(&self, s: &str) -> bool {
+        let re = Regex::new(r"^\d+$").unwrap();
+        re.is_match(s)
+    }
+
+    // 对句子中的价格进行打折，并返回打折后的句子
+    fn discount_prices(&self, sentence: &str, discount: i32) -> String {
+        let radio = 100 - discount;
+        let radio = radio as f64 / 100.0; // 将折扣转换为小数形式
+
+        let mut words = sentence.split_whitespace(); // 分割句子为单词
+        let mut result = String::new(); // 用于存储结果的字符串
+
+        while let Some(word) = words.next() {
+            if word.starts_with('$') && self.is_num(&word[1..]) {
+                // 计算打折后的价格
+                let price = word[1..].parse::<f64>().unwrap() * radio;
+                // 格式化价格为两位小数
+                let formatted_price = format!("{:.2}", price);
+                // 将格式化后的价格添加到结果字符串中
+                result.push_str(&format!("${}", formatted_price));
+            } else {
+                // 如果不是价格，直接添加到结果字符串中
+                result.push_str(word);
+            }
+            result.push(' '); // 添加空格分隔单词
+        }
+
+        // 移除最后一个多余的空格
+        if !result.is_empty() {
+            result.pop();
+        }
+
+        result
+    }
+// }
+
+// fn main() {
+//     let solution = Solution;
+//     let sentence = "This is a $100 price. And this is a $20 price.";
+//     let discount = 20; // 20% discount
+//     let discounted_sentence = solution.discount_prices(&sentence, discount);
+//     println!("{}", discounted_sentence);
+// }
+// }
 
 
 struct MyHashSet {
